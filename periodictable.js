@@ -1126,7 +1126,7 @@ function animate() {
     if (monoControl.enabled) {
         monoControl.update();
     } else {
-        vrControl.update(10);
+        vrControl.update(5);
     }
 }
 

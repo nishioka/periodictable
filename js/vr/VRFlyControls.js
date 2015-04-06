@@ -13,6 +13,14 @@ THREE.VRFlyControls = function(object, domElement, callback) {
 
     this.plane = new THREE.Object3D();
 
+    // game controller stuff
+    this.haveEvents = 'ongamepadconnected' in window;
+    this.controllers = {};
+
+    if (!this.haveEvents) {
+        setInterval(this.scangamepads, 500);
+    }
+
     var vrInput;
     var onVRDevices = function(devices) {
         for (var i = 0; i < devices.length; i++) {
@@ -37,7 +45,7 @@ THREE.VRFlyControls = function(object, domElement, callback) {
 
     // API
     this.movementSpeed = 1.0;
-    this.rollSpeed = 0.005;
+    this.rollSpeed = 0.002;
 
     this.dragToLook = false;
     this.autoForward = false;
@@ -211,66 +219,39 @@ THREE.VRFlyControls = function(object, domElement, callback) {
         this.updateRotationVector();
     };
 
-    this.mousedown = function(event) {
-        if (this.domElement !== document) {
-            this.domElement.focus();
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (this.dragToLook) {
-            this.mouseStatus++;
-        } else {
-            switch (event.button) {
-                case 0:
-                    this.moveState.forward = 1;
-                    break;
-                case 2:
-                    this.moveState.back = 1;
-                    break;
-            }
-            this.updateMovementVector();
-        }
-    };
-
-    this.mousemove = function(event) {
-        if (!this.dragToLook || this.mouseStatus > 0) {
-            var container = this.getContainerDimensions();
-            var halfWidth = container.size[0] / 2;
-            var halfHeight = container.size[1] / 2;
-
-            this.moveState.yawLeft = -((event.pageX - container.offset[0]) - halfWidth) / halfWidth;
-            this.moveState.pitchDown = ((event.pageY - container.offset[1]) - halfHeight) / halfHeight;
-
-            this.updateRotationVector();
-        }
-    };
-
-    this.mouseup = function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (this.dragToLook) {
-            this.mouseStatus--;
-            this.moveState.yawLeft = this.moveState.pitchDown = 0;
-        } else {
-            switch (event.button) {
-                case 0:
-                    this.moveState.forward = 0;
-                    break;
-                case 2:
-                    this.moveState.back = 0;
-                    break;
-            }
-            this.updateMovementVector();
-        }
-        this.updateRotationVector();
-    };
-
     this.update = function(delta) {
         var moveMult = delta * this.movementSpeed;
         var rotMult = delta * this.rollSpeed;
+
+        // game controller
+        for (var j in this.controllers) {
+            var controller = this.controllers[j];
+            /*
+            for (var i = 0; i < controller.buttons.length; i++) {
+                var val = controller.buttons[i];
+                var pressed = val === 1.0;
+                if (typeof(val) === 'object') {
+                    pressed = val.pressed;
+                    val = val.value;
+                }
+                if (pressed) {
+                    console.log('button(' + i + ') pressed');
+                }
+            }
+            */
+            if (controller.axes[1] > 0.5 || controller.axes[1] < -0.5) {
+                this.moveVector.z = controller.axes[1]; // forward
+            }
+            if (controller.axes[0] > 0.5 || controller.axes[0] < -0.5) {
+                this.rotationVector.y = -controller.axes[0]; // yaw
+            }
+            if (controller.axes[2] > 0.5 || controller.axes[2] < -0.5) {
+                this.rotationVector.z = -controller.axes[2]; // roll
+            }
+            if (controller.axes[3] > 0.5 || controller.axes[3] < -0.5) {
+                this.rotationVector.x = controller.axes[3]; // pitch
+            }
+        }
 
         this.plane.translateX(this.moveVector.x * moveMult);
         this.plane.translateY(this.moveVector.y * moveMult);
@@ -300,6 +281,9 @@ THREE.VRFlyControls = function(object, domElement, callback) {
         }
         this.tmpQuaternion.copy(this.plane.quaternion);
         this.object.rotation.setFromQuaternion(this.tmpQuaternion.multiply(this.vrQuaternion));
+
+        this.rotationVector.set (0, 0, 0);
+        this.moveVector.set (0, 0, 0);
     };
 
     this.updateMovementVector = function() {
@@ -334,6 +318,37 @@ THREE.VRFlyControls = function(object, domElement, callback) {
         }
     };
 
+    this.connecthandler = function(e) {
+        this.addgamepad(e.gamepad);
+    };
+
+    this.addgamepad = function(gamepad) {
+        this.controllers[gamepad.index] = gamepad;
+        console.log('addgamepad: ', this.controllers);
+    };
+
+    this.disconnecthandler = function(e) {
+        this.removegamepad(e.gamepad);
+    };
+
+    this.removegamepad = function(gamepad) {
+        delete this.controllers[gamepad.index];
+    };
+
+    this.scangamepads = function() {
+        var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+        for (var i = 0; i < gamepads.length; i++) {
+            if (gamepads[i]) {
+                if (gamepads[i].index in this.controllers) {
+                    this.controllers[gamepads[i].index] = gamepads[i];
+                    console.log('controllers: ', this.controllers);
+                } else {
+                    this.addgamepad(gamepads[i]);
+                }
+            }
+        }
+    };
+
     function bind(scope, fn) {
         return function() {
             fn.apply(scope, arguments);
@@ -346,6 +361,8 @@ THREE.VRFlyControls = function(object, domElement, callback) {
 
     window.addEventListener('keydown', bind(this, this.keydown), false);
     window.addEventListener('keyup', bind(this, this.keyup), false);
+    window.addEventListener("gamepadconnected", bind(this, this.connecthandler), false);
+    window.addEventListener("gamepaddisconnected", bind(this, this.disconnecthandler), false);
 
     this.updateMovementVector();
     this.updateRotationVector();
