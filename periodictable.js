@@ -729,6 +729,9 @@ var targets = {
     grid: []
 };
 
+var SVG_NS = 'http://www.w3.org/2000/svg';
+var XHTML_NS = 'http://www.w3.org/1999/xhtml';
+
 init();
 animate();
 
@@ -745,89 +748,79 @@ function init() {
         canvas.height = 160;
         var context = canvas.getContext("2d");
 
-        // DOMオブジェクトをCanvasに描画する
-        var DOMURL = self.URL || self.webkitURL || self;
-        // DOMオブジェクト
-        var element = document.createElement('div');
-        element.className = 'element';
-        element.style.backgroundColor = 'rgba(0,127,127,' + (Math.random() * 0.5 + 0.25) + ')';
+        // DOMオブジェクトの作成
+        var svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttributeNS(null, 'version', '1.1');
+        svg.setAttribute('xmlns', SVG_NS);
+        svg.setAttribute('width', canvas.width);
+        svg.setAttribute('height', canvas.height);
 
-        var number = document.createElement('div');
-        number.className = 'number';
+        var object = document.createElementNS(SVG_NS, 'foreignObject');
+        object.setAttribute('width', '100%');
+        object.setAttribute('height', '100%');
+        svg.appendChild(object);
+
+        var html = document.createElementNS(XHTML_NS, 'div');
+        html.setAttribute('xmlns', XHTML_NS);
+        object.appendChild(html);
+
+        var element = document.createElementNS(XHTML_NS, 'div');
+        element.style.backgroundColor = 'rgba(0,127,127,' + (Math.random() * 0.5 + 0.25) + ')';
+        element.style.width = '120px';
+        element.style.height = '160px';
+        element.style.boxShadow = '0px 0px 12px rgba(0, 255, 255, 0.5)';
+        element.style.border = '1px solid rgba(127, 255, 255, 0.25)';
+        element.style.textAlign = 'center';
+        html.appendChild(element);
+
+        var number = document.createElementNS(XHTML_NS, 'div');
+        number.style.position = 'absolute';
+        number.style.top = '20px';
+        number.style.right = '20px';
+        number.style.fontSize = '12px';
+        number.style.color = 'rgba(127, 255, 255, 0.75)';
         number.textContent = i + 1;
         element.appendChild(number);
 
-        var symbol = document.createElement('div');
-        symbol.className = 'symbol';
+        var symbol = document.createElementNS(XHTML_NS, 'div');
+        symbol.style.position = 'absolute';
+        symbol.style.top = '40px';
+        symbol.style.left = '0px';
+        symbol.style.right = '0px';
+        symbol.style.fontSize = '60px';
+        symbol.style.fontWeight = 'bold';
+        symbol.style.color = 'rgba(255, 255, 255, 0.75)';
+        symbol.style.textShadow = '0px 0px 10px rgba(0, 255, 255, 0.95)';
         symbol.textContent = table[i].symbol;
         element.appendChild(symbol);
 
-        var details = document.createElement('div');
-        details.className = 'details';
+        var details = document.createElementNS(XHTML_NS, 'div');
+        details.style.position = 'absolute';
+        details.style.top = '110px';
+        details.style.left = '0px';
+        details.style.right = '0px';
+        details.style.fontSize = '12px';
+        details.style.color = 'rgba(127, 255, 255, 0.75)';
         details.textContent = table[i].details;
         element.appendChild(details);
 
-        var mol = document.createElement('div');
-        mol.className = 'mol';
+        var mol = document.createElementNS(XHTML_NS, 'div');
+        mol.style.position = 'absolute';
+        mol.style.bottom = '15px';
+        mol.style.left = '0px';
+        mol.style.right = '0px';
+        mol.style.fontSize = '12px';
+        mol.style.color = 'rgba(127, 255, 255, 0.75)';
         mol.textContent = table[i].mol;
         element.appendChild(mol);
 
-        var DOMSVG =
-            "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160'>" +
-            "<foreignObject width='100%' height='100%'>" +
-            "<style>" +
-            ".element {" +
-            "    width: 120px;" +
-            "    height: 160px;" +
-            "    box-shadow: 0px 0px 12px rgba(0, 255, 255, 0.5);" +
-            "    border: 1px solid rgba(127, 255, 255, 0.25);" +
-            "    text-align: center;" +
-            "    cursor: default;" +
-            "}" +
-            ".element .number {" +
-            "    position: absolute;" +
-            "    top: 20px;" +
-            "    right: 20px;" +
-            "    font-size: 12px;" +
-            "    color: rgba(127, 255, 255, 0.75);" +
-            "}" +
-            ".element .symbol {" +
-            "    position: absolute;" +
-            "    top: 40px;" +
-            "    left: 0px;" +
-            "    right: 0px;" +
-            "    font-size: 60px;" +
-            "    font-weight: bold;" +
-            "    color: rgba(255, 255, 255, 0.75);" +
-            "    text-shadow: 0 0 10px rgba(0, 255, 255, 0.95);" +
-            "}" +
-            ".element .details {" +
-            "    position: absolute;" +
-            "    top: 110px;" +
-            "    left: 0px;" +
-            "    right: 0px;" +
-            "    font-size: 12px;" +
-            "    color: rgba(127, 255, 255, 0.75);" +
-            "}" +
-            ".element .mol {" +
-            "    position: absolute;" +
-            "    bottom: 15px;" +
-            "    left: 0px;" +
-            "    right: 0px;" +
-            "    font-size: 12px;" +
-            "    color: rgba(127, 255, 255, 0.75);" +
-            "}" +
-            "</style>" +
-            "<div xmlns='http://www.w3.org/1999/xhtml'>" +
-            element.outerHTML +
-            "</div>" +
-            "</foreignObject>" +
-            "</svg>";
-
-        var svg = new Blob([DOMSVG], {
+        var svgBlob = new Blob([svg.outerHTML], {
             type: 'image/svg+xml;charset=utf-8'
         });
-        var url = DOMURL.createObjectURL(svg);
+
+        // DOMオブジェクトをCanvasに描画する
+        var DOMURL = self.URL || self.webkitURL || self;
+        var url = DOMURL.createObjectURL(svgBlob);
         var image = new Image();
         // ループ内でのクロージャー定義
         image.onload = (function(url, img, ctx) {
@@ -889,7 +882,7 @@ function init() {
     renderer.domElement.style.position = 'absolute';
 
     // container that fullscreen will be called on.
-    container = document.getElementById('vrPeriodictable');
+    container = document.getElementById('vrContainer');
     container.appendChild(renderer.domElement);
 
     // for VR
@@ -961,6 +954,19 @@ function init() {
     transform(targets.table, 5000);
 }
 
+function createTableObjects(objectsLength) {
+    var tables = [];
+    var object;
+    for (var i = 0; i < objectsLength; i++) {
+        object = new THREE.Object3D();
+        object.position.x = (table[i].x * 140) - 1330;
+        object.position.y = -(table[i].y * 180) + 990;
+
+        tables.push(object);
+    }
+    return tables;
+}
+
 function createSphereObjects(objectsLength) {
     var spheres = [];
     var phi, theta, object;
@@ -1020,19 +1026,6 @@ function createGridObjects(objectsLength) {
     return grids;
 }
 
-function createTableObjects(objectsLength) {
-    var tables = [];
-    var object;
-    for (var i = 0; i < objectsLength; i++) {
-        object = new THREE.Object3D();
-        object.position.x = (table[i].x * 140) - 1330;
-        object.position.y = -(table[i].y * 180) + 990;
-
-        tables.push(object);
-    }
-    return tables;
-}
-
 function addAxisGrid() {
     // xyz-axis
     axis = new THREE.AxisHelper(2000);
@@ -1082,7 +1075,6 @@ function transform(positions, duration) {
         .to({}, duration * 2)
         .onUpdate(render)
         .onComplete(function() {
-
             switch (state) {
                 case 0:
                     transform(targets.sphere, 2000);
@@ -1099,7 +1091,6 @@ function transform(positions, duration) {
             }
 
             state = state + 1;
-
             if (state > 3) state = 0;
         })
         .start();
