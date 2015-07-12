@@ -718,8 +718,10 @@ var vrControl, monoControl;
 
 var helper, axis, grid;
 
-var state = 0;
+var formState = 0;
 var drawnCounter = 0;
+
+var modeVR = false;
 
 var objects = [];
 var targets = {
@@ -736,8 +738,33 @@ init();
 animate();
 
 function init() {
+    // レンダーのセットアップ
+    renderer = new THREE.WebGLRenderer({antialias: true});
+
+    // VR stereo rendering
+    vrEffect = new THREE.VREffect(renderer);
+    vrEffect.setSize(window.innerWidth, window.innerHeight);
+
+    // renderer.autoClear = false;
+    renderer.setClearColor(0x222222);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.domElement.style.position = 'absolute';
+
+    // container that fullscreen will be called on.
+    container = document.getElementById('vrContainer');
+    container.appendChild(renderer.domElement);
+
     camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 10000);
     camera.position.z = 3000;
+
+    // for VR
+    vrControl = new THREE.VRFlyControls(camera);
+
+    // for not VR
+    monoControl = new THREE.OrbitControls(camera, renderer.domElement);
+    monoControl.rotateSpeed = 0.5;
+    monoControl.minDistance = 500;
+    monoControl.maxDistance = 6000;
 
     scene = new THREE.Scene();
 
@@ -746,20 +773,25 @@ function init() {
         var canvas = document.createElement('canvas');
         canvas.width = 120;
         canvas.height = 160;
+
         var context = canvas.getContext("2d");
 
-        // DOMオブジェクトの作成
+        var geometry = new THREE.PlaneBufferGeometry(canvas.width, canvas.height);
+
+        // SVGの作成
         var svg = document.createElementNS(SVG_NS, 'svg');
         svg.setAttributeNS(null, 'version', '1.1');
         svg.setAttribute('xmlns', SVG_NS);
         svg.setAttribute('width', canvas.width);
         svg.setAttribute('height', canvas.height);
 
+        // DOMをforeignObjectでSVGに描画
         var object = document.createElementNS(SVG_NS, 'foreignObject');
         object.setAttribute('width', '100%');
         object.setAttribute('height', '100%');
         svg.appendChild(object);
 
+        // DOMオブジェクトの作成
         var html = document.createElementNS(XHTML_NS, 'div');
         html.setAttribute('xmlns', XHTML_NS);
         object.appendChild(html);
@@ -818,15 +850,14 @@ function init() {
             type: 'image/svg+xml;charset=utf-8'
         });
 
-        // DOMオブジェクトをCanvasに描画する
+        // SVGをCanvasに描画する
         var DOMURL = self.URL || self.webkitURL || self;
         var url = DOMURL.createObjectURL(svgBlob);
         var image = new Image();
         // ループ内でのクロージャー定義
         image.onload = (function(url, img, ctx) {
             return function() {
-                ctx.drawImage(this, 0, 0, 120, 160);
-
+                ctx.drawImage(this, 0, 0, canvas.width, canvas.height);
                 // オブジェクト破棄
                 DOMURL.revokeObjectURL(url);
                 drawnCounter++;
@@ -834,9 +865,7 @@ function init() {
         })(url, image, context);
         image.src = url;
 
-        var geometry = new THREE.PlaneBufferGeometry(120, 160);
-
-        // 生成したcanvasをtextureとしてTHREE.Textureオブジェクトを生成
+        // 生成したCanvasをtextureとしてTHREE.Textureオブジェクトを生成
         var texture = new THREE.Texture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
@@ -844,9 +873,9 @@ function init() {
 
         var material = new THREE.MeshBasicMaterial({
             side: THREE.DoubleSide,
+            transparent: true,
             map: texture
         });
-        material.transparent = true;
 
         // 初期位置はランダムで配置
         var mesh = new THREE.Mesh(geometry, material);
@@ -867,66 +896,38 @@ function init() {
     addAxisGrid();
     helper = true;
 
-    // レンダーのセットアップ
-    renderer = new THREE.WebGLRenderer({
-        antialias: true
-    });
-
-    // VR stereo rendering
-    vrEffect = new THREE.VREffect(renderer);
-    vrEffect.setSize(window.innerWidth, window.innerHeight);
-
-    // renderer.autoClear = false;
-    renderer.setClearColor(0x222222);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.domElement.style.position = 'absolute';
-
-    // container that fullscreen will be called on.
-    container = document.getElementById('vrContainer');
-    container.appendChild(renderer.domElement);
-
-    // for VR
-    vrControl = new THREE.VRFlyControls(camera);
-
-    // for not VR
-    monoControl = new THREE.OrbitControls(camera, renderer.domElement);
-    monoControl.rotateSpeed = 0.5;
-    monoControl.minDistance = 500;
-    monoControl.maxDistance = 6000;
-
     var buttonTable = document.getElementById('table');
     buttonTable.addEventListener('click', function() {
         transform(targets.table, 2000);
-        console.log('table');
     }, false);
 
     var buttonSphere = document.getElementById('sphere');
     buttonSphere.addEventListener('click', function() {
         transform(targets.sphere, 2000);
-        console.log('sphere');
     }, false);
 
     var buttonHelix = document.getElementById('helix');
     buttonHelix.addEventListener('click', function() {
         transform(targets.helix, 2000);
-        console.log('helix');
     }, false);
 
     var buttonGrid = document.getElementById('grid');
     buttonGrid.addEventListener('click', function() {
         transform(targets.grid, 2000);
-        console.log('grid');
     }, false);
 
-    // ダブルクリックでfull-screen VR mode
-    window.addEventListener('dblclick', function() {
-        changeMode('vr');
-
+    // 画面ダブルクリックでfull-screen VR mode
+    window.addEventListener('dblclick', function () {
+        modeVR = true;
         vrEffect.setFullScreen(true);
     }, false);
 
-    // full-screen VR modeからの復帰
-    document.addEventListener('mozfullscreenchange', handleFullScreenChange);
+    // full-screen VR modeからの復帰時の処理
+    document.addEventListener('mozfullscreenchange', function () {
+        if (document.mozFullScreenElement === null) {
+            modeVR = false;
+        }
+    });
 
     window.addEventListener('resize', onWindowResize, false);
 
@@ -944,20 +945,19 @@ function init() {
         hide(enterVr);
         show(getVr);
     });
-
-    enterVr.addEventListener('click', function() {
-        changeMode('vr');
-
+    // VRボタンクリックでfull-screen VR mode
+    enterVr.addEventListener('click', function () {
+        modeVR = true;
         vrEffect.setFullScreen(true);
     }, false);
 
     transform(targets.table, 5000);
 }
 
-function createTableObjects(objectsLength) {
+function createTableObjects(length) {
     var tables = [];
     var object;
-    for (var i = 0; i < objectsLength; i++) {
+    for (var i = 0; i < length; i++) {
         object = new THREE.Object3D();
         object.position.x = (table[i].x * 140) - 1330;
         object.position.y = -(table[i].y * 180) + 990;
@@ -967,13 +967,13 @@ function createTableObjects(objectsLength) {
     return tables;
 }
 
-function createSphereObjects(objectsLength) {
+function createSphereObjects(length) {
     var spheres = [];
     var phi, theta, object;
     var vector = new THREE.Vector3();
-    for (var i = 0; i < objectsLength; i++) {
-        phi = Math.acos(-1 + (2 * i) / objectsLength);
-        theta = Math.sqrt(objectsLength * Math.PI) * phi;
+    for (var i = 0; i < length; i++) {
+        phi = Math.acos(-1 + (2 * i) / length);
+        theta = Math.sqrt(length * Math.PI) * phi;
 
         object = new THREE.Object3D();
         object.position.x = 800 * Math.cos(theta) * Math.sin(phi);
@@ -989,11 +989,11 @@ function createSphereObjects(objectsLength) {
     return spheres;
 }
 
-function createHelixObjects(objectsLength) {
+function createHelixObjects(length) {
     var helixes = [];
     var phi, object;
     var vector = new THREE.Vector3();
-    for (var i = 0; i < objectsLength; i++) {
+    for (var i = 0; i < length; i++) {
         phi = i * 0.175 + Math.PI;
 
         object = new THREE.Object3D();
@@ -1012,10 +1012,10 @@ function createHelixObjects(objectsLength) {
     return helixes;
 }
 
-function createGridObjects(objectsLength) {
+function createGridObjects(length) {
     var grids = [];
     var object;
-    for (var i = 0; i < objectsLength; i++) {
+    for (var i = 0; i < length; i++) {
         object = new THREE.Object3D();
         object.position.x = ((i % 5) * 400) - 800;
         object.position.y = (-(Math.floor(i / 5) % 5) * 400) + 800;
@@ -1024,6 +1024,62 @@ function createGridObjects(objectsLength) {
         grids.push(object);
     }
     return grids;
+}
+
+function transform(positions, duration) {
+    TWEEN.removeAll();
+
+    for (var i = 0; i < objects.length; i++) {
+        var object = objects[i];
+        var target = positions[i];
+/*
+if (i === 0) {
+    console.log('object', object.position);
+    console.log('target', target.position);
+}
+*/
+        var position = new TWEEN.Tween(object.position);
+        position.to({
+            x: target.position.x,
+            y: target.position.y,
+            z: target.position.z
+        }, Math.random() * duration + duration)
+        .easing(TWEEN.Easing.Exponential.InOut)
+        .start();
+
+        var rotation = new TWEEN.Tween(object.rotation);
+        rotation.to({
+            x: target.rotation.x,
+            y: target.rotation.y,
+            z: target.rotation.z
+        }, Math.random() * duration + duration)
+        .easing(TWEEN.Easing.Exponential.InOut)
+        .start();
+    }
+
+    // 配置のローテーション
+    var tween = new TWEEN.Tween();
+    tween.to({}, duration * 2)
+    .onComplete(function() {
+        switch (formState) {
+            case 0:
+                transform(targets.sphere, 5000);
+                break;
+            case 1:
+                transform(targets.helix, 5000);
+                break;
+            case 2:
+                transform(targets.grid, 5000);
+                break;
+            case 3:
+                transform(targets.table, 5000);
+                break;
+        }
+
+        formState = formState + 1;
+        if (formState > 3) {formState = 0;}
+    })
+    .start();
 }
 
 function addAxisGrid() {
@@ -1045,110 +1101,36 @@ function removeAxisGrid() {
     helper = false;
 }
 
-function transform(positions, duration) {
-    TWEEN.removeAll();
-
-    for (var i = 0; i < objects.length; i++) {
-        var object = objects[i];
-        var target = positions[i];
-
-        new TWEEN.Tween(object.position)
-            .to({
-                x: target.position.x,
-                y: target.position.y,
-                z: target.position.z
-            }, Math.random() * duration + duration)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .start();
-
-        new TWEEN.Tween(object.rotation)
-            .to({
-                x: target.rotation.x,
-                y: target.rotation.y,
-                z: target.rotation.z
-            }, Math.random() * duration + duration)
-            .easing(TWEEN.Easing.Exponential.InOut)
-            .start();
-    }
-
-    new TWEEN.Tween(this)
-        .to({}, duration * 2)
-        .onUpdate(render)
-        .onComplete(function() {
-            switch (state) {
-                case 0:
-                    transform(targets.sphere, 2000);
-                    break;
-                case 1:
-                    transform(targets.helix, 2000);
-                    break;
-                case 2:
-                    transform(targets.grid, 2000);
-                    break;
-                case 3:
-                    transform(targets.table, 2000);
-                    break;
-            }
-
-            state = state + 1;
-            if (state > 3) state = 0;
-        })
-        .start();
-}
-
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
 
-    if (monoControl.enabled) {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    } else {
+    if (modeVR) {
         vrEffect.setSize(window.innerWidth, window.innerHeight);
+    } else {
+        renderer.setSize(window.innerWidth, window.innerHeight);
     }
-
-    render();
 }
 
 function animate() {
+    // keep looping
     requestAnimationFrame(animate);
 
+    // 全てのタイル画像の描画が終わってから
+    if (drawnCounter < 118) {return;}
+ 
+    // Object update
     TWEEN.update();
 
-    if (monoControl.enabled) {
-        monoControl.update();
-    } else {
+    // render and control update
+    if (modeVR) {
+        // Update VR headset position and apply to camera.
         vrControl.update(5);
-    }
-}
-
-function render() {
-    // 全ての画像の描画が終わってから
-    if (drawnCounter >= 118) {
-        if (monoControl.enabled) {
-            renderer.render(scene, camera);
-        } else {
-            vrEffect.render(scene, camera);
-        }
-    }
-}
-
-function changeMode(mode) {
-    console.log('changing mode: ' + mode);
-    switch (mode) {
-        case 'mono':
-            monoControl.enabled = true;
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            break;
-        case 'vr':
-            monoControl.enabled = false;
-            vrEffect.setSize(window.innerWidth, window.innerHeight);
-            break;
-    }
-}
-
-function handleFullScreenChange() {
-    if (document.mozFullScreenElement === null) {
-        changeMode('mono');
+        // Render the scene through the VREffect.
+        vrEffect.render(scene, camera);
+    } else {
+        monoControl.update();
+        renderer.render(scene, camera);
     }
 }
 

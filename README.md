@@ -1,5 +1,4 @@
-# periodictable
-periodictable for Firefox VR
+# periodictablee for Firefox VR
 
 http://nishioka.github.io/periodictable/index.html
 

@@ -1,4 +1,4 @@
-/* global THREE:false, PositionSensorVRDevice:false */
+/* global THREE:false, PositionSensorVRDevice:false, setInterval:false, navigator:false, document:false */
 
 /**
  * @author James Baicoianu / http://www.baicoianu.com/
@@ -9,17 +9,16 @@ THREE.VRFlyControls = function(object, domElement, callback) {
     this.object = object;
 
     this.domElement = (domElement !== undefined) ? domElement : document;
-    if (domElement) this.domElement.setAttribute('tabindex', -1);
+    if (domElement) {this.domElement.setAttribute('tabindex', -1);}
 
     this.plane = new THREE.Object3D();
+    this.plane.position.copy(this.object.position);
 
     // game controller stuff
     this.haveEvents = 'ongamepadconnected' in window;
     this.controllers = {};
 
-    if (!this.haveEvents) {
-        setInterval(this.scangamepads, 500);
-    }
+    if (!this.haveEvents) {setInterval(this.scangamepads, 500);}
 
     var vrInput;
     var onVRDevices = function(devices) {
@@ -45,7 +44,7 @@ THREE.VRFlyControls = function(object, domElement, callback) {
 
     // API
     this.movementSpeed = 1.0;
-    this.rollSpeed = 0.002;
+    this.rollSpeed = 0.01;
 
     this.dragToLook = false;
     this.autoForward = false;
@@ -221,7 +220,8 @@ THREE.VRFlyControls = function(object, domElement, callback) {
 
     this.update = function(delta) {
         var moveMult = delta * this.movementSpeed;
-        var rotMult = delta * this.rollSpeed;
+        //var rotMult = delta * this.rollSpeed;
+        var rotMult = this.rollSpeed;
 
         // game controller
         for (var j in this.controllers) {

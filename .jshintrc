@@ -1,0 +1,3 @@
+{
+    "predef": ["THREE", "Promise", "HMDVRDevice", "PositionSensorVRDevice", "requestAnimationFrame", "Image", "Blob", "navigator", "document", "window"]
+}
