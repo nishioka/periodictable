@@ -937,13 +937,13 @@ function init() {
     var enterVr = document.getElementById('enterVR');
     // when VR is not detected
     var getVr = document.getElementById('getVR');
-    vrDetect().then(function() {
+    VRClient.getVR.then(function () {
         // vr detected
-        hide(getVr);
-    }, function() {
+        getVr.classList.add('display-none');
+    }, function () {
         // displays when VR is not detected
-        hide(enterVr);
-        show(getVr);
+        enterVr.classList.add('display-none');
+        getVr.classList.remove('display-none');
     });
     // VRボタンクリックでfull-screen VR mode
     enterVr.addEventListener('click', function () {
@@ -1032,12 +1032,7 @@ function transform(positions, duration) {
     for (var i = 0; i < objects.length; i++) {
         var object = objects[i];
         var target = positions[i];
-/*
-if (i === 0) {
-    console.log('object', object.position);
-    console.log('target', target.position);
-}
-*/
+
         var position = new TWEEN.Tween(object.position);
         position.to({
             x: target.position.x,
@@ -1134,14 +1129,6 @@ function animate() {
     }
 }
 
-function show(element) {
-    element.classList.remove('display-none');
-}
-
-function hide(element) {
-    element.classList.add('display-none');
-}
-
 function onkey(event) {
     event.preventDefault();
 
@@ -1157,40 +1144,6 @@ function onkey(event) {
             addAxisGrid();
         }
     }
-}
-
-function vrDetect() {
-    var hmdDevice, positionDevice;
-    return new Promise(function(resolve, reject) {
-        if (navigator.getVRDevices) {
-            navigator.getVRDevices().then(function(devices) {
-
-                console.log('found ' + devices.length + ' devices');
-
-                for (var i = 0; i < devices.length; ++i) {
-                    if (devices[i] instanceof HMDVRDevice && !hmdDevice) {
-                        hmdDevice = devices[i];
-                        //console.log('found head mounted display device');
-                    }
-
-                    if (devices[i] instanceof PositionSensorVRDevice &&
-                        devices[i].hardwareUnitId === hmdDevice.hardwareUnitId && !positionDevice) {
-                        positionDevice = devices[i];
-                        //console.log('found motion tracking devices');
-                        break;
-                    }
-                }
-
-                if (hmdDevice && positionDevice) {
-                    resolve();
-                    return;
-                }
-                reject('no VR devices found!');
-            });
-        } else {
-            reject('no VR implementation found!');
-        }
-    });
 }
 
 //logs camera pos when h is pressed
